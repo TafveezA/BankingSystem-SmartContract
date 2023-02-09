@@ -544,7 +544,7 @@ contract BankingSystem {
         uint256 amountDeposited;
         uint256 timeStamp;
         bool isBorrowed;
-        bool isDeposited;
+        bool isDone;
     }
 
     mapping(uint256 => mapping(uint256 => Position)) public positions1;
@@ -555,57 +555,61 @@ contract BankingSystem {
     mapping(uint256 => uint256) public positionCount2;
 
     //for bank2 clientId to positionId
+    function borrowPosition(  uint256 _bankId,
+        uint256 _branchId,
+        uint256 _clientId,
+        uint256 _amount) public 
+   {
+  if(_bankId== 0){
+        positions1[_branchId][positionCount1[_clientId]].amountBorrowed =_amount;
+        positions1[_branchId][positionCount1[_clientId]].isBorrowed = true;
+        positions1[_branchId][positionCount1[_clientId]].bankId  =_bankId;
+        positions1[_branchId][positionCount1[_clientId]].clientId =_clientId;
+        positions1[_branchId][positionCount1[_clientId]].positionId = positionCount1[_clientId];
+        positionCount1[_clientId]++;
+  }
+  else{
+       positions2[_branchId][positionCount1[_clientId]].amountBorrowed =_amount;
+        positions2[_branchId][positionCount1[_clientId]].isBorrowed = true;
+        positions2[_branchId][positionCount1[_clientId]].bankId  =_bankId;
+        positions2[_branchId][positionCount1[_clientId]].clientId =_clientId;
+        positions2[_branchId][positionCount1[_clientId]].positionId = positionCount2[_clientId];
+        positionCount2[_clientId]++;
+
+  }
+       
+
+    }
 
     function borrowFromBranch(
         uint256 _bankId,
         uint256 _branchId,
         uint256 _clientId,
-        uint256 _amount
+        uint256 _positionId
+       
     ) public returns (bool) {
         require(_bankId == 0 || _bankId == 1, "Invalid bank ID");
-        require(
-            clients[_bankId][clientCount[_bankId][_branchId]].clientId ==
-                _clientId &&
-                clients[_bankId][clientCount[_bankId][_branchId]].branchId ==
-                _branchId,
-            "Invalid clientID or BranchID"
-        );
+        require( branches[_bankId][_branchId].branch == msg.sender,"Invalid  Branch");
         if (_bankId == 0) {
             _safeTransferFrom(
                 token1,
                 branches[_bankId][_branchId].branch,
-                msg.sender,
-                _amount
+               clients[_bankId][_clientId].client,
+                 positions1[_branchId][_positionId].amountBorrowed
             );
-            positions1[_branchId][positionCount1[_clientId]] = Position(
-                _bankId,
-                _branchId,
-                _clientId,
-                positionCount1[_clientId],
-                _amount,
-                0,
-                block.timestamp,
-                true,
-                false
-            );
+            positions1[_branchId][_positionId].timeStamp =block.timestamp; 
+             positions1[_branchId][_positionId].isDone =true;
         } else {
             _safeTransferFrom(
                 token2,
                 branches[_bankId][_branchId].branch,
-                msg.sender,
-                _amount
+                clients[_bankId][_clientId].client,
+                 positions2[_branchId][_positionId].amountBorrowed
             );
-            positions2[_branchId][positionCount2[_clientId]] = Position(
-                _bankId,
-                _branchId,
-                _clientId,
-                positionCount1[_clientId],
-                _amount,
-                0,
-                block.timestamp,
-                true,
-                false
-            );
+            positions2[_branchId][_positionId].timeStamp =  block.timestamp;
+             positions2[_branchId][_positionId].isDone =true;
+            
+            
         }
 
         return true;
@@ -647,6 +651,7 @@ contract BankingSystem {
         uint256 _bankId,
         uint256 _branchId,
         uint256 _clientId
+      
     ) public {
         require(_bankId == 0 || _bankId == 1, "Invalid bank ID");
         require(
@@ -669,6 +674,7 @@ contract BankingSystem {
                 )
             );
             positions1[_branchId][positionCount1[_clientId]].isBorrowed = false;
+             delete  positions1[_branchId][positionCount2[_clientId]];
         } else {
             _safeTransferFrom(
                 token2,
@@ -682,6 +688,8 @@ contract BankingSystem {
                 )
             );
             positions2[_branchId][positionCount2[_clientId]].isBorrowed = false;
+
+            delete  positions2[_branchId][positionCount2[_clientId]];
         }
     }
 }
