@@ -596,6 +596,9 @@ contract BankingSystem {
  mapping(address => mapping(uint256 => Position)) public positionDetails;
  //client address and positionid to position struct.
 
+
+
+// by client
     function borrowRequest(  uint256 _bankId,
         uint256 _clientId,
         uint256 _amount) public 
@@ -623,8 +626,8 @@ contract BankingSystem {
        
 
     }
-
-    function borrowFromBranch(
+// by branch of the client
+    function processLoan(
         uint256 _bankId,
         uint256 _branchId,
         uint256 _clientId,
@@ -692,7 +695,7 @@ contract BankingSystem {
                 24;
         }
     }
-
+// by client
     function clearLoan(
         uint256 _bankId,
         uint256 _branchId,
