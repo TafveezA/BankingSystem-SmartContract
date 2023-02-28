@@ -22,9 +22,12 @@ contract BankingSystem {
         token2 = IERC20(_token2);
 
         priceFeed = AggregatorV3Interface(
-            0x44390589104C9164407A0E0562a9DBe6C24A0E05
+            0x7d7356bF6Ee5CDeC22B216581E48eCC700D0497A
         );
     }
+    // for goerli testnet
+// 0x44390589104C9164407A0E0562a9DBe6C24A0E05
+
 
     struct totalAsset {
         uint256 totalAssetWithBank;
@@ -609,11 +612,11 @@ contract BankingSystem {
         numOfPosition[_clientAddress]++;
   }
   else{
-       positionDetails[_clientAddress][index].amountBorrowed =_amount;
-       positionDetails[_clientAddress][index].isBorrowed = true;
+        positionDetails[_clientAddress][index].amountBorrowed =_amount;
+        positionDetails[_clientAddress][index].isBorrowed = true;
         positionDetails[_clientAddress][index].bankId  =_bankId;
-        positionDetails[_clientAddress][index].clientId =_clientId;
-        positionDetails[_clientAddress][index].positionId = index;
+         positionDetails[_clientAddress][index].clientId =_clientId;
+         positionDetails[_clientAddress][index].positionId = index;
          numOfPosition[_clientAddress]++;
 
   }
@@ -636,10 +639,10 @@ contract BankingSystem {
                 token1,
                 branches[_bankId][_branchId].branch,
               _clientAddress,
-                 positionDetails[_clientAddress][_positionId].amountBorrowed
+             positionDetails[_clientAddress][_positionId].amountBorrowed
             );
-            positionDetails[_clientAddress][_positionId].timeStamp =block.timestamp; 
-             positionDetails[_clientAddress][_positionId].isDone =true;
+             positionDetails[_clientAddress][_positionId].timeStamp = block.timestamp; 
+             positionDetails[_clientAddress][_positionId].isDone = true;
         } else {
             _safeTransferFrom(
                 token2,
@@ -706,6 +709,13 @@ contract BankingSystem {
             "Invalid clientID or BranchID"
         );
         address user =msg.sender;
+        uint256 interestAmount = calculateInterest(
+                    10,
+                    positionDetails[user][_positionId]
+                        .amountBorrowed,
+                    calculateNumOfDays(_bankId, _branchId,_positionId)
+                );
+                uint256 payableAmount =positionDetails[user][_positionId].amountBorrowed +interestAmount;
 
       
         if (_bankId == 0) {
@@ -713,12 +723,7 @@ contract BankingSystem {
                 token1,
                 msg.sender,
                 branches[_bankId][_branchId].branch,
-                calculateInterest(
-                    10,
-                    positionDetails[user][_positionId]
-                        .amountBorrowed,
-                    calculateNumOfDays(_bankId, _branchId,_positionId)
-                )
+                payableAmount
             );
             positionDetails[user][_positionId].isBorrowed = false;
              delete  positionDetails[user][_positionId];
@@ -727,12 +732,7 @@ contract BankingSystem {
                 token2,
                 msg.sender,
                 branches[_bankId][_branchId].branch,
-                calculateInterest(
-                    10,
-                    positionDetails[user][_positionId]
-                        .amountBorrowed,
-                    calculateNumOfDays(_bankId, _branchId,_positionId)
-                )
+                payableAmount
             );
             positionDetails[user][_positionId].isBorrowed = false;
 
