@@ -10,6 +10,7 @@ contract BankingSystem {
     IERC20 public token1;
 
     IERC20 public token2;
+    
 
     mapping(address => uint256) assetInUsd;
     mapping(address => uint256) assetInEur;
@@ -134,7 +135,7 @@ contract BankingSystem {
             _tokenSymbol
         );
         idOfAddress[_branchAddress].bankId =_bankId;
-        idOfAddress[_branchAddress].branchId =_bankId;
+        idOfAddress[_branchAddress].branchId = branchCount[_bankId];
 
         if (_bankId == 0) {
             _safeTransferFrom(token1, msg.sender, _branchAddress, _amount);
@@ -606,6 +607,7 @@ forexDetails[branches[_toBankId][_toBranchId].branch] = forexDetail( numOfReques
         uint256 timeStamp;
         bool isBorrowed;
         bool isDone;
+        bool isClear;
     }
     struct borrowDetail{
     uint256 positionId;
@@ -665,8 +667,17 @@ forexDetails[branches[_toBankId][_toBranchId].branch] = forexDetail( numOfReques
 
   }
        
-
+       
     }
+    
+
+
+    // mapping(uint256=>uint256) iRateOfBorrowing;
+    //    function setInterestRate (uint256 _bankId,uint _iR) public {
+    //        require(banks[_bankId].bank==msg.sender,"Access Denied");
+    //        iRateOfBorrowing[_bankId]=_iR;
+    //    }
+
 // by branch of the client
     function processLoan(
         uint256 _bankId,
@@ -754,7 +765,7 @@ forexDetails[branches[_toBankId][_toBranchId].branch] = forexDetail( numOfReques
         );
         address user =msg.sender;
         uint256 interestAmount = calculateInterest(
-                    10,
+                   10,
                     positionDetails[user][_positionId]
                         .amountBorrowed,
                     calculateNumOfDays(_bankId, _branchId,_positionId)
@@ -770,7 +781,8 @@ forexDetails[branches[_toBankId][_toBranchId].branch] = forexDetail( numOfReques
                 payableAmount
             );
             positionDetails[user][_positionId].isBorrowed = false;
-             delete  positionDetails[user][_positionId];
+            positionDetails[user][_positionId].isClear =true;
+             
         } else {
             _safeTransferFrom(
                 token2,
@@ -779,8 +791,8 @@ forexDetails[branches[_toBankId][_toBranchId].branch] = forexDetail( numOfReques
                 payableAmount
             );
             positionDetails[user][_positionId].isBorrowed = false;
+             positionDetails[user][_positionId].isClear =true;
 
-            delete  positionDetails[user][_positionId];
         }
     }
 }
