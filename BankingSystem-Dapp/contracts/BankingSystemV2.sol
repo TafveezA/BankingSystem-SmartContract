@@ -43,16 +43,18 @@ contract BankingSystem {
         string tokenSymbol;
         uint256 centralBankId;
         uint256 amount;
+        bool status;
     }
 
-    mapping(uint256 => Bank) banks;
+    mapping(uint256 => Bank) public banks;
+    
 
     function addBank(
         address _bankAddress,
         string memory _tokenSymbol,
         uint256 _centralBankId,
         uint256 _amount
-    ) public returns (bool success) {
+    ) public  {
         require(
             (token1.getBankOwner() == msg.sender && _centralBankId == 0) ||
                 (token2.getBankOwner() == msg.sender && _centralBankId == 1),
@@ -69,8 +71,10 @@ contract BankingSystem {
             _centralBankId,
             _tokenSymbol,
             _centralBankId,
-            _amount
+            _amount,
+            true
         );
+        idOfAddress[_bankAddress].bankId =_centralBankId;
         if (_centralBankId == 0) {
             _safeTransferFrom(token1, msg.sender, _bankAddress, _amount);
             totalAssets[_centralBankId].totalAssetWithBank = _amount;
@@ -79,8 +83,16 @@ contract BankingSystem {
             totalAssets[_centralBankId].totalAssetWithBank = _amount;
         }
 
-        return true;
+        return;
     }
+
+
+    struct Id{
+        uint bankId;
+        uint256 branchId;
+        uint256 clientId;
+    }
+    mapping(address=>Id) public idOfAddress;
 
     struct Branch {
         uint256 bankId;
@@ -90,7 +102,7 @@ contract BankingSystem {
         uint256 amount;
         string tokenSymbol;
     }
-    mapping(uint256 => mapping(uint256 => Branch)) branches;
+    mapping(uint256 => mapping(uint256 => Branch)) public branches;
     // mapping of bankId to branch Id to branches
     mapping(uint256 => uint256) public branchCount;
 
@@ -121,6 +133,9 @@ contract BankingSystem {
             _amount,
             _tokenSymbol
         );
+        idOfAddress[_branchAddress].bankId =_bankId;
+        idOfAddress[_branchAddress].branchId =_bankId;
+
         if (_bankId == 0) {
             _safeTransferFrom(token1, msg.sender, _branchAddress, _amount);
             totalAssets[_bankId].totalAssetWithBranch += _amount;
@@ -144,6 +159,7 @@ contract BankingSystem {
     mapping(uint256 => mapping(uint256 => Client)) public clients;
     // mapping of bankId to clientId to Client
     mapping(uint256 => mapping(uint256 => uint256)) public clientCount;
+    //mapping(address=>uint256) clientCount;
 
     //mapping of bankid,branchId to clientId
 
@@ -176,6 +192,11 @@ contract BankingSystem {
             _amount,
             _tokenSymbol
         );
+         idOfAddress[ _clientAddress].bankId =_bankId;
+        idOfAddress[ _clientAddress].branchId = _branchId;
+         idOfAddress[ _clientAddress].clientId =  clientCount[_bankId][_branchId];
+        
+
         if (_bankId == 0) {
             _safeTransferFrom(token1, msg.sender, _clientAddress, _amount);
             totalAssets[_bankId].totalAssetWithClient += _amount;
@@ -296,10 +317,20 @@ contract BankingSystem {
         bool isSentToBank;
         bool isDone;
     }
+
+    struct forexDetail{
+        uint256 reqId;
+        uint256 clientId;
+        address byClient ;
+        address toClient;
+        bool isApproved;
+
+    }
     // mapping(uint256 => mapping(uint256 => forexRequest)) public requests;
     // mapping(uint256 => mapping(uint256 => uint256)) public requestCount;
     mapping(address=>mapping(uint256=>forexRequest))public requestDetails;
     mapping(address=>uint256) public numOfRequest;
+    mapping(address=>forexDetail) public forexDetails;
 
     function forexRequestToBranchOfBank1(
         uint256 _fromBankId,
@@ -370,6 +401,10 @@ contract BankingSystem {
             false,
             false
         );
+        forexDetails[branches[_fromBankId][_fromBranchId].branch] = forexDetail( numOfRequest[user],_clientId,user,_toClient,false);
+         forexDetails[branches[_toBranchId][_toBranchId].branch] = forexDetail( numOfRequest[user],_clientId,user,_toClient,false);
+        
+        
         numOfRequest[user]++;
       
         return (
@@ -381,14 +416,15 @@ contract BankingSystem {
     function forexRequestToBranchOfBank2(
         uint256 _fromBankId,
         uint256 _fromBranchId,
+         uint256 _clientId,
         uint256 _toBankId,
         uint256 _toBranchId,
         address _toClient,
         uint256 _amountInUsd
     ) public returns (uint256 reqCount, uint256 _amount) {
         require(
-            clients[_fromBankId][_fromBranchId].client == msg.sender &&
-                clients[_toBankId][_toBranchId].client == _toClient,
+            clients[_fromBankId][_clientId].client == msg.sender &&
+                clients[_toBankId][_clientId].client == _toClient,
             "NOT A CLIENT"
         );
         require(_fromBankId == 1, "Not A correct BankID");
@@ -400,6 +436,7 @@ contract BankingSystem {
             token2.allowance(msg.sender, address(this)) >= _amountInUsd,
             "Token Allowance is Low"
         );
+        address user = msg.sender;
 
         _safeTransferFrom(
             token2,
@@ -410,26 +447,7 @@ contract BankingSystem {
         obligations[banks[_fromBankId].bank].inUsd += _amountInUsd;
         obligations[banks[_toBankId].bank]
             .inEur += getConversionRateAmountInEUR(_amountInUsd);
-        // requests[_fromBankId][
-        //     requestCount[_fromBankId][
-        //         clients[_fromBankId][_fromBranchId].clientId
-        //     ]
-        // ] = forexRequest(
-        //     _fromBankId,
-        //     _fromBranchId,
-        //     _toBankId,
-        //     _toBranchId,
-        //     _amountInUsd,
-        //     getConversionRateAmountInEUR(_amountInUsd),
-        //     msg.sender,
-        //     _toClient,
-        //     requestCount[_fromBankId][
-        //         clients[_fromBankId][_fromBranchId].clientId
-        //     ],
-        //     true,
-        //     false,
-        //     false
-        // );
+     
   requestDetails[msg.sender][numOfRequest[msg.sender]]= forexRequest(
             _fromBankId,
             _fromBranchId,
@@ -445,8 +463,9 @@ contract BankingSystem {
             false,
             false
         );
-
-         numOfRequest[msg.sender]++;
+forexDetails[branches[_fromBankId][_fromBranchId].branch] = forexDetail( numOfRequest[user],_clientId,user,_toClient,false);
+forexDetails[branches[_toBankId][_toBranchId].branch] = forexDetail( numOfRequest[user],_clientId,user,_toClient,false);
+         numOfRequest[user]++;
       
         return (
             numOfRequest[msg.sender],
@@ -457,6 +476,7 @@ contract BankingSystem {
     function sendForexRequestToBank(
         uint256 _bankId,
         uint256 _branchId,
+        uint256 _clientId,
         uint256 _reqId
     ) public {
         require(
@@ -464,12 +484,17 @@ contract BankingSystem {
             "Not A Branch"
         );
         require(_bankId == 0 || _bankId == 1, "Invalid BankId");
-        address _user = clients[_bankId][_branchId].client;
+        address _user = clients[_bankId][_clientId].client;
         require(
             requestDetails[_user][_reqId].isDepositedToBranch,
             "Payment Is Due at branch"
         );
         requestDetails[_user][_reqId].isSentToBank = true;
+        uint256 toBankId;
+        uint256 toBranchId;
+        toBankId =idOfAddress[requestDetails[_user][_reqId].toClient].bankId;
+        toBranchId= idOfAddress[requestDetails[_user][_reqId].toClient].branchId;
+        forexDetails[ branches[toBankId][toBranchId].branch].isApproved =true;
     }
 
     function processForexRequestByBranch(
@@ -582,6 +607,13 @@ contract BankingSystem {
         bool isBorrowed;
         bool isDone;
     }
+    struct borrowDetail{
+    uint256 positionId;
+    uint256 clientId;
+     address byClient ;
+     address toBranch;
+     bool isApproved;
+    }
 
     // mapping(uint256 => mapping(uint256 => Position)) public positions1;
     // //mapping from branchId to numof position
@@ -595,6 +627,7 @@ contract BankingSystem {
  // mapping client address to position id
  mapping(address => mapping(uint256 => Position)) public positionDetails;
  //client address and positionid to position struct.
+ mapping(address=>borrowDetail) public borrowDetails;
 
 
 
@@ -612,6 +645,10 @@ contract BankingSystem {
         positionDetails[_clientAddress][index].bankId  =_bankId;
         positionDetails[_clientAddress][index].clientId =_clientId;
         positionDetails[_clientAddress][index].positionId = index;
+         uint256 branchId=idOfAddress[_clientAddress].branchId;
+         address branchAddress =branches[_bankId][branchId].branch;
+         borrowDetails[branchAddress] = borrowDetail(index,_clientId,_clientAddress,branchAddress,false);
+        
         numOfPosition[_clientAddress]++;
   }
   else{
@@ -620,6 +657,10 @@ contract BankingSystem {
         positionDetails[_clientAddress][index].bankId  =_bankId;
          positionDetails[_clientAddress][index].clientId =_clientId;
          positionDetails[_clientAddress][index].positionId = index;
+
+          uint256 branchId=idOfAddress[_clientAddress].branchId;
+         address branchAddress =branches[_bankId][branchId].branch;
+         borrowDetails[branchAddress] = borrowDetail(index,_clientId,_clientAddress,branchAddress,false);
          numOfPosition[_clientAddress]++;
 
   }
